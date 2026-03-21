@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mein Online Piano & Konverter</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+
+        h1 { color: #4CAF50; margin-bottom: 10px; }
+        .section {
+            background: #1e1e1e;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        /* Keyboard Style */
+        .piano {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            margin: 20px 0;
+        }
+        .key {
+            width: 50px;
+            height: 150px;
+            background: white;
+            color: #333;
+            border-radius: 0 0 5px 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 10px;
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: bold;
+            transition: all 0.1s;
+            user-select: none;
+        }
+        .key:active, .key.active {
+            background: #4CAF50;
+            color: white;
+            transform: translateY(4px);
+        }
+
+        /* Upload Style */
+        input[type="file"] {
+            margin: 20px 0;
+            color: #888;
+        }
+        .status { color: #4CAF50; font-size: 0.9em; min-height: 1.2em; }
+        canvas {
+            width: 100%;
+            height: 80px;
+            background: #000;
+            margin-top: 15px;
+            border-radius: 5px;
+        }
+        .hint { color: #666; font-size: 0.8em; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>Web Audio Lab</h1>
+
+    <div class="section">
+        <h3>Live Keyboard</h3>
+        <p>Klicke oder nutze die Tasten: A, S, D, F, G, H, J, K</p>
+        <div class="piano">
+            <div class="key" id="note-C" onclick="playManual(261.63)">C <span>(A)</span></div>
+            <div class="key" id="note-D" onclick="playManual(293.66)">D <span>(S)</span></div>
+            <div class="key" id="note-E" onclick="playManual(329.63)">E <span>(D)</span></div>
+            <div class="key" id="note-F" onclick="playManual(349.23)">F <span>(F)</span></div>
+            <div class="key" id="note-G" onclick="playManual(392.00)">G <span>(G)</span></div>
+            <div class="key" id="note-A" onclick="playManual(440.00)">A <span>(H)</span></div>
+            <div class="key" id="note-H" onclick="playManual(493.88)">H <span>(J)</span></div>
+            <div class="key" id="note-C2" onclick="playManual(523.25)">C2 <span>(K)</span></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Audio-to-Piano Konverter</h3>
+        <p>Lade eine Datei hoch, um sie "übersetzen" zu lassen.</p>
+        <input type="file" id="audioFile" accept="audio/*">
+        <div id="status" class="status">Warte auf Datei...</div>
+        <canvas id="visualizer"></canvas>
+        <p class="hint">Hinweis: Funktioniert am besten bei klaren Melodien ohne viel Schlagzeug.</p>
+    </div>
+
+    <script>
+        let audioCtx;
+        
+        // Initialisiert den AudioContext nach dem ersten Klick (Browser-Sicherheit)
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // --- MANUELLES KEYBOARD FUNKTION ---
+        const keyMap = {
+            'a': { freq: 261.63, id: 'note-C' },
+            's': { freq: 293.66, id: 'note-D' },
+            'd': { freq: 329.63, id: 'note-E' },
+            'f': { freq: 349.23, id: 'note-F' },
+            'g': { freq: 392.00, id: 'note-G' },
+            'h': { freq: 440.00, id: 'note-A' },
+            'j': { freq: 493.88, id: 'note-H' },
+            'k': { freq: 523.25, id: 'note-C2' }
+        };
+
+        function playManual(freq) {
+            initAudio();
+            playTone(freq, 0.5, 'sine');
+        }
+
+        window.addEventListener('keydown', (e) => {
+            const data = keyMap[e.key.toLowerCase()];
+            if (data) {
+                playManual(data.freq);
+                const el = document.getElementById(data.id);
+                el.classList.add('active');
+                setTimeout(() => el.classList.remove('active'), 100);
+            }
+        });
+
+        // --- KONVERTER FUNKTION ---
+        const fileInput = document.getElementById('audioFile');
+        const status = document.getElementById('status');
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+        let analyser;
+
+        fileInput.onchange = function() {
+            initAudio();
+            const file = URL.createObjectURL(this.files[0]);
+            const audio = new Audio(file);
+            
+            const source = audioCtx.createMediaElementSource(audio);
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 2048;
+            
+            source.connect(analyser);
+            // Das Original ist stumm geschaltet, damit man nur das Piano hört.
+            // source.connect(audioCtx.destination); 
+
+            audio.play();
+            status.innerText = "Spiele Piano-Imitation...";
+            detectPitch();
+            draw();
+        };
+
+        function detectPitch() {
+            const buffer = new Float32Array(analyser.frequencyBinCount);
+            
+            function analyze() {
+                analyser.getFloatFrequencyData(buffer);
+                let maxVal = -Infinity;
+                let index = -1;
+                
+                for (let i = 0; i < buffer.length; i++) {
+                    if (buffer[i] > maxVal) {
+                        maxVal = buffer[i];
+                        index = i;
+                    }
+                }
+
+                const freq = index * audioCtx.sampleRate / analyser.fftSize;
+                if (maxVal > -55 && freq > 60 && freq < 1500) {
+                    playTone(freq, 0.08, 'triangle'); // Leiser für den Konverter
+                }
+                requestAnimationFrame(analyze);
+            }
+            analyze();
+        }
+
+        // Gemeinsame Sound-Engine
+        function playTone(freq, vol, type) {
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            g.gain.setValueAtTime(vol, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.6);
+            osc.connect(g);
+            g.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.6);
+        }
+
+        function draw() {
+            if (!analyser) return;
+            requestAnimationFrame(draw);
+            const data = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(data);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#4CAF50';
+            for (let i = 0; i < data.length; i += 5) {
+                ctx.fillRect(i, canvas.height - data[i]/3, 2, data[i]/3);
+            }
+        }
+    </script>
+</body>
+</html>
