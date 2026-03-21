@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mein Taschen-Keyboard</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        h1 { margin-bottom: 20px; color: #4CAF50; }
+        .piano {
+            display: flex;
+            gap: 5px;
+            background: #333;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .key {
+            width: 60px;
+            height: 180px;
+            background: white;
+            color: #333;
+            border-radius: 0 0 5px 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 15px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.1s, transform 0.1s;
+            user-select: none;
+        }
+        .key:active, .key.active {
+            background: #4CAF50;
+            color: white;
+            transform: translateY(4px);
+        }
+        .hint { margin-top: 20px; color: #888; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+
+    <h1>HTML Keyboard</h1>
+
+    <div class="piano">
+        <div class="key" id="note-C" onclick="playNote(261.63)">C <span>(A)</span></div>
+        <div class="key" id="note-D" onclick="playNote(293.66)">D <span>(S)</span></div>
+        <div class="key" id="note-E" onclick="playNote(329.63)">E <span>(D)</span></div>
+        <div class="key" id="note-F" onclick="playNote(349.23)">F <span>(F)</span></div>
+        <div class="key" id="note-G" onclick="playNote(392.00)">G <span>(G)</span></div>
+        <div class="key" id="note-A" onclick="playNote(440.00)">A <span>(H)</span></div>
+        <div class="key" id="note-H" onclick="playNote(493.88)">H <span>(J)</span></div>
+        <div class="key" id="note-C2" onclick="playNote(523.25)">C2 <span>(K)</span></div>
+    </div>
+
+    <div class="hint">Benutze die Maus oder die Tasten A bis K</div>
+
+    <script>
+        // Audio-Kontext erstellen (wird erst bei Interaktion aktiv)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Zuordnung von Tastatur-Tasten zu Frequenzen und IDs
+        const keyMap = {
+            'a': { freq: 261.63, id: 'note-C' },
+            's': { freq: 293.66, id: 'note-D' },
+            'd': { freq: 329.63, id: 'note-E' },
+            'f': { freq: 349.23, id: 'note-F' },
+            'g': { freq: 392.00, id: 'note-G' },
+            'h': { freq: 440.00, id: 'note-A' },
+            'j': { freq: 493.88, id: 'note-H' },
+            'k': { freq: 523.25, id: 'note-C2' }
+        };
+
+        function playNote(frequency) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.type = 'sine'; // Kann auch 'square', 'sawtooth' oder 'triangle' sein
+            oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+
+            // Lautstärke-Verlauf (Ein- und Ausblenden gegen Knacken)
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1.5);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 1.5);
+        }
+
+        // Event-Listener für die Tastatur
+        window.addEventListener('keydown', (e) => {
+            const keyData = keyMap[e.key.toLowerCase()];
+            if (keyData) {
+                playNote(keyData.freq);
+                const el = document.getElementById(keyData.id);
+                el.classList.add('active');
+                setTimeout(() => el.classList.remove('active'), 100);
+            }
+        });
+    </script>
+</body>
+</html>
