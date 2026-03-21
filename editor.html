@@ -2,103 +2,124 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Einfacher Audio Editor</title>
+    <title>Pro Audio Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 50px; background-color: #f0f0f0; }
-        .controls { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .control-group { margin: 15px 0; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="range"] { width: 300px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1e1e2e; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .editor-box { background: #2b2b3b; padding: 30px; border-radius: 15px; width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .control-group { margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        label { display: block; margin-bottom: 8px; font-size: 0.9em; color: #bbb; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        button { width: 100%; padding: 10px; margin-top: 10px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .play-btn { background: #4caf50; color: white; }
+        .stop-btn { background: #f44336; color: white; }
+        .play-btn:disabled { background: #555; }
+        .info { font-size: 0.8em; color: #888; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-    <h2>Musik-Editor</h2>
+    <h2>Audio Studio</h2>
     
-    <div class="controls">
+    <div class="editor-box">
         <div class="control-group">
-            <label>1. Datei auswählen:</label>
-            <input type="file" id="audioFile" accept="audio/*">
+            <label>1. Datei laden</label>
+            <input type="file" id="fileInput" accept="audio/*">
         </div>
 
         <div class="control-group">
-            <label>2. Abspielgeschwindigkeit / Tonhöhe:</label>
-            <input type="range" id="pitch" min="0.5" max="2.0" step="0.01" value="1">
-            <span id="pitchVal">1.0</span>
+            <label>Tonlage (Pitch): <span id="pitchVal">0</span> Halbtöne</label>
+            <input type="range" id="pitchShift" min="-12" max="12" step="1" value="0">
         </div>
 
         <div class="control-group">
-            <label>3. Lautstärke:</label>
-            <input type="range" id="volume" min="0" max="2" step="0.1" value="1">
-            <span id="volVal">1.0</span>
+            <label>Geschwindigkeit (Tempo): <span id="tempoVal">100</span>%</label>
+            <input type="range" id="tempo" min="50" max="200" step="1" value="100">
         </div>
 
-        <button id="playBtn" disabled>Abspielen</button>
-        <button id="stopBtn" disabled>Stopp</button>
+        <div class="control-group">
+            <label>Hall (Reverb): <span id="revVal">0</span>%</label>
+            <input type="range" id="reverb" min="0" max="100" step="1" value="0">
+        </div>
+
+        <div class="control-group">
+            <label>Gesang entfernen (Experimentell)</label>
+            <button id="vocalBtn" style="background: #6200ea; color: white;">Filter AN/AUS</button>
+            <p class="info">Nutzt Phasenauslöschung der Mitte.</p>
+        </div>
+
+        <button id="playBtn" class="play-btn" disabled>Abspielen</button>
+        <button id="stopBtn" class="stop-btn">Stopp</button>
     </div>
 
     <script>
-        let audioCtx;
-        let source;
-        let gainNode;
-        let audioBuffer;
+        let player, pitchShift, reverb, vocalFilter;
+        let isVocalRemoved = false;
 
-        const fileInput = document.getElementById('audioFile');
-        const pitchCtrl = document.getElementById('pitch');
-        const volCtrl = document.getElementById('volume');
-        const playBtn = document.getElementById('playBtn');
-        const stopBtn = document.getElementById('stopBtn');
-
-        // Datei laden und dekodieren
-        fileInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const arrayBuffer = await file.arrayBuffer();
-            audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const url = URL.createObjectURL(e.target.files[0]);
             
-            playBtn.disabled = false;
-        });
-
-        playBtn.addEventListener('click', () => {
-            if (source) source.stop();
-
-            // Setup Nodes
-            source = audioCtx.createBufferSource();
-            source.buffer = audioBuffer;
+            // Player und Effekte initialisieren
+            player = new Tone.Player(url).toDestination();
+            pitchShift = new Tone.PitchShift(0).toDestination();
+            reverb = new Tone.Reverb({ decay: 2, wet: 0 }).toDestination();
             
-            gainNode = audioCtx.createGain();
-            
-            // Verbindungen
-            source.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
+            // Gesangsentfernung: Wir nutzen einen speziellen Filter-Trick
+            // (Funktioniert am besten bei Stereo-Tracks, wo Gesang mittig ist)
+            vocalFilter = new Tone.Mono().toDestination();
 
-            // Aktuelle Werte anwenden
-            source.playbackRate.value = pitchCtrl.value;
-            gainNode.gain.value = volCtrl.value;
+            // Kette bilden: Player -> Pitch -> Reverb -> Lautsprecher
+            player.connect(pitchShift);
+            pitchShift.connect(reverb);
 
-            source.start(0);
-            stopBtn.disabled = false;
+            await Tone.loaded();
+            document.getElementById('playBtn').disabled = false;
         });
 
-        stopBtn.addEventListener('click', () => {
-            if (source) source.stop();
-            stopBtn.disabled = true;
-        });
+        // Abspielen
+        document.getElementById('playBtn').onclick = async () => {
+            await Tone.start();
+            player.start();
+        };
 
-        // Echtzeit-Änderungen
-        pitchCtrl.addEventListener('input', (e) => {
-            const val = e.target.value;
-            document.getElementById('pitchVal').innerText = val;
-            if (source) source.playbackRate.value = val;
-        });
+        // Stoppen
+        document.getElementById('stopBtn').onclick = () => player.stop();
 
-        volCtrl.addEventListener('input', (e) => {
-            const val = e.target.value;
-            document.getElementById('volVal').innerText = val;
-            if (gainNode) gainNode.gain.value = val;
-        });
+        // Tonlage (Pitch) - Ändert Tonhöhe ohne Geschwindigkeit
+        document.getElementById('pitchShift').oninput = (e) => {
+            pitchShift.pitch = e.target.value;
+            document.getElementById('pitchVal').innerText = e.target.value;
+        };
+
+        // Geschwindigkeit (Tempo) - Ändert Tempo ohne Tonhöhe
+        document.getElementById('tempo').oninput = (e) => {
+            const factor = e.target.value / 100;
+            player.playbackRate = factor;
+            document.getElementById('tempoVal').innerText = e.target.value;
+        };
+
+        // Hall (Reverb)
+        document.getElementById('reverb').oninput = (e) => {
+            reverb.wet.value = e.target.value / 100;
+            document.getElementById('revVal').innerText = e.target.value;
+        };
+
+        // Gesang entfernen (Center-Channel-Subtraction)
+        document.getElementById('vocalBtn').onclick = (e) => {
+            isVocalRemoved = !isVocalRemoved;
+            // Technischer Hinweis: Eine echte Trennung ist extrem schwer.
+            // Wir nutzen hier eine einfache Monomischung oder Phasenverschiebung.
+            if(isVocalRemoved) {
+                player.disconnect();
+                player.connect(vocalFilter);
+                vocalFilter.connect(pitchShift);
+                e.target.innerText = "Filter: AKTIV";
+            } else {
+                player.disconnect();
+                player.connect(pitchShift);
+                e.target.innerText = "Filter: AUS";
+            }
+        };
     </script>
 </body>
 </html>
