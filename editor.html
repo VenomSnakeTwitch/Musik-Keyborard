@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Einfacher Audio Editor</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 50px; background-color: #f0f0f0; }
+        .controls { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .control-group { margin: 15px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="range"] { width: 300px; }
+    </style>
+</head>
+<body>
+
+    <h2>Musik-Editor</h2>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>1. Datei auswählen:</label>
+            <input type="file" id="audioFile" accept="audio/*">
+        </div>
+
+        <div class="control-group">
+            <label>2. Abspielgeschwindigkeit / Tonhöhe:</label>
+            <input type="range" id="pitch" min="0.5" max="2.0" step="0.01" value="1">
+            <span id="pitchVal">1.0</span>
+        </div>
+
+        <div class="control-group">
+            <label>3. Lautstärke:</label>
+            <input type="range" id="volume" min="0" max="2" step="0.1" value="1">
+            <span id="volVal">1.0</span>
+        </div>
+
+        <button id="playBtn" disabled>Abspielen</button>
+        <button id="stopBtn" disabled>Stopp</button>
+    </div>
+
+    <script>
+        let audioCtx;
+        let source;
+        let gainNode;
+        let audioBuffer;
+
+        const fileInput = document.getElementById('audioFile');
+        const pitchCtrl = document.getElementById('pitch');
+        const volCtrl = document.getElementById('volume');
+        const playBtn = document.getElementById('playBtn');
+        const stopBtn = document.getElementById('stopBtn');
+
+        // Datei laden und dekodieren
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const arrayBuffer = await file.arrayBuffer();
+            audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            
+            playBtn.disabled = false;
+        });
+
+        playBtn.addEventListener('click', () => {
+            if (source) source.stop();
+
+            // Setup Nodes
+            source = audioCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            
+            gainNode = audioCtx.createGain();
+            
+            // Verbindungen
+            source.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            // Aktuelle Werte anwenden
+            source.playbackRate.value = pitchCtrl.value;
+            gainNode.gain.value = volCtrl.value;
+
+            source.start(0);
+            stopBtn.disabled = false;
+        });
+
+        stopBtn.addEventListener('click', () => {
+            if (source) source.stop();
+            stopBtn.disabled = true;
+        });
+
+        // Echtzeit-Änderungen
+        pitchCtrl.addEventListener('input', (e) => {
+            const val = e.target.value;
+            document.getElementById('pitchVal').innerText = val;
+            if (source) source.playbackRate.value = val;
+        });
+
+        volCtrl.addEventListener('input', (e) => {
+            const val = e.target.value;
+            document.getElementById('volVal').innerText = val;
+            if (gainNode) gainNode.gain.value = val;
+        });
+    </script>
+</body>
+</html>
