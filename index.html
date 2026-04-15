@@ -3,89 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mein Bildgenerator</title>
+    <title>NSFW Bildgenerator</title>
     <style>
         /* Modernes, dunkles Design */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0f0f0f;
-            color: #ffffff;
-            margin: 0;
+            background-color: #0c0c0c;
+            color: #eeeeee;
             display: flex;
             flex-direction: column;
             align-items: center;
+            padding: 20px;
+            margin: 0;
             min-height: 100vh;
         }
 
-        header {
-            background-color: #1a1a1a;
-            width: 100%;
-            padding: 20px 0;
-            text-align: center;
-            border-bottom: 2px solid #e91e63;
-            margin-bottom: 30px;
-        }
-
         .container {
-            width: 90%;
-            max-width: 1000px;
-            background: #1a1a1a;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-        }
-
-        .info-box {
-            background: #252525;
-            padding: 15px;
-            border-left: 5px solid #e91e63;
-            margin-bottom: 20px;
-            font-size: 0.9em;
-        }
-
-        /* Das Iframe, das Perchance lädt */
-        .generator-wrapper {
-            position: relative;
+            max-width: 650px;
             width: 100%;
-            height: 800px; /* Höhe des Generators */
-            border-radius: 10px;
-            overflow: hidden;
+            background: #181818;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
             border: 1px solid #333;
         }
 
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
+        h1 {
+            color: #ff2e63;
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 2.2em;
         }
 
-        footer {
-            margin-top: 40px;
-            padding: 20px;
-            color: #555;
-            font-size: 0.8em;
+        .info-box {
+            background: #222;
+            padding: 15px;
+            border-left: 5px solid #ff2e63;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            color: #aaa;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            box-sizing: border-box;
+            font-size: 16px;
+            resize: none;
+            margin-bottom: 10px;
+        }
+
+        textarea:focus {
+            border-color: #08d9d6;
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: #ff2e63;
+            border: none;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #08d9d6;
+            color: #000;
+        }
+
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+
+        #result-container {
+            margin-top: 30px;
+            text-align: center;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #333;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #121212;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 8px;
+        }
+
+        .status {
+            color: #08d9d6;
+            font-style: italic;
+            font-size: 1.1em;
+        }
+
+        .error {
+            color: #ff2e63;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
 
-    <header>
-        <h1>Privater Bild-Generator</h1>
-    </header>
-
     <div class="container">
+        <h1>Privater Bild-Generator</h1>
+        
         <div class="info-box">
-            <strong>Hinweis:</strong> Dieser Generator nutzt die Technologie von Perchance. Er ist kostenlos, unzensiert und benötigt keine Anmeldung. Gib deine Prompts einfach in das Textfeld unten ein.
+            <strong>Kostenlos & Unzensiert:</strong> Dieser Generator nutzt die Technologie von Pollinations.ai. Gib deinen Prompt unten ein. Englische Begriffe liefern die besten Ergebnisse.
         </div>
+        
+        <textarea id="promptInput" placeholder="Z.B.: realistic, cinematic lighting, dramatic portrait of a knight..."></textarea>
+        <button id="generateBtn" onclick="generateImage()">Bild erstellen</button>
 
-        <div class="generator-wrapper">
-            <iframe src="https://perchance.org/ai-text-to-image-generator" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        <div id="result-container">
+            <p id="statusText">Dein Bild erscheint hier...</p>
         </div>
     </div>
 
-    <footer>
-        Erstellt mit Hilfe der Perchance Engine &copy; 2026
-    </footer>
+    <script>
+        function generateImage() {
+            const prompt = document.getElementById('promptInput').value;
+            const container = document.getElementById('result-container');
+            const status = document.getElementById('statusText');
+            const button = document.getElementById('generateBtn');
 
+            if (!prompt) {
+                alert("Bitte gib einen Text ein!");
+                return;
+            }
+
+            // UI für das Laden vorbereiten
+            button.disabled = true;
+            button.innerText = "KI rechnet...";
+            container.innerHTML = '<p class="status">KI generiert dein Bild... Bitte einen Moment Geduld.</p>';
+            
+            // Zufallszahl für Abwechslung (Seed)
+            const seed = Math.floor(Math.random() * 1000000);
+            
+            // Pollinations URL zusammenbauen (nologo=true entfernt Wasserzeichen)
+            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?seed=${seed}&width=1024&height=1024&nologo=true`;
+
+            // Bild-Objekt erstellen, um zu prüfen, wann es fertig geladen ist
+            const img = new Image();
+            
+            // Sobald das Bild geladen ist, anzeigen
+            img.onload = function() {
+                container.innerHTML = '';
+                container.appendChild(img);
+                button.disabled = false;
+                button.innerText = "Bild erstellen";
+            };
+            
+            // Fehlerbehandlung
+            img.onerror = function() {
+                container.innerHTML = '<p class="error">Fehler beim Laden des Bildes. Bitte versuche es erneut.</p>';
+                button.disabled = false;
+                button.innerText = "Bild erstellen";
+            };
+            
+            // Das Laden des Bildes starten
+            img.src = imageUrl;
+        }
+    </script>
 </body>
 </html>
