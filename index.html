@@ -3,84 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KI Bildgenerator Pro</title>
+    <title>Bildgenerator Pro</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: white; text-align: center; padding: 20px; }
-        .card { background: #111; padding: 25px; border-radius: 15px; max-width: 500px; margin: auto; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        h2 { color: #e91e63; margin-top: 0; }
-        textarea { width: 100%; height: 100px; background: #1a1a1a; color: white; border: 1px solid #444; border-radius: 8px; padding: 12px; box-sizing: border-box; font-size: 15px; resize: none; }
-        button { width: 100%; padding: 15px; background: #e91e63; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold; font-size: 16px; }
-        button:hover { background: #c2185b; }
-        button:disabled { background: #555; cursor: not-allowed; }
-        #result { margin-top: 25px; min-height: 300px; border: 1px dashed #444; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; }
-        img { width: 100%; height: auto; display: block; }
-        .status-text { color: #08d9d6; font-size: 0.9em; padding: 20px; }
+        body { font-family: sans-serif; background: #050505; color: white; text-align: center; padding: 20px; }
+        .container { max-width: 450px; margin: auto; background: #111; padding: 25px; border-radius: 15px; border: 1px solid #333; }
+        h2 { color: #ff2e63; }
+        textarea { width: 100%; height: 100px; background: #222; color: white; border: 1px solid #444; border-radius: 8px; padding: 10px; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; background: #ff2e63; border: none; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 15px; }
+        #output-box { margin-top: 25px; min-height: 300px; border: 2px dashed #333; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; }
+        img { width: 100%; height: auto; display: none; }
+        .loading-text { color: #08d9d6; display: none; }
     </style>
 </head>
 <body>
 
-    <div class="card">
+    <div class="container">
         <h2>Unzensierte KI</h2>
-        <textarea id="prompt" placeholder="Beschreibe dein Bild auf Englisch (z.B. masterpiece, photorealistic, 8k, ...)"></textarea>
-        <button id="genBtn" onclick="generate()">Bild generieren</button>
-        
-        <div id="result">
-            <p id="status" class="status-text">Bereit für deine Beschreibung.</p>
+        <textarea id="prompt" placeholder="Beschreibe dein Bild (Englisch)..."></textarea>
+        <button onclick="generate()">BILD ERSTELLEN</button>
+
+        <div id="output-box">
+            <p id="placeholder">Dein Bild erscheint hier</p>
+            <p id="loading" class="loading-text">KI rechnet... bitte warten...</p>
+            <img id="resultImage">
         </div>
     </div>
 
     <script>
-        async function generate() {
-            const promptInput = document.getElementById('prompt');
-            const status = document.getElementById('status');
-            const resultDiv = document.getElementById('result');
-            const btn = document.getElementById('genBtn');
+        function generate() {
+            const prompt = document.getElementById('prompt').value;
+            const img = document.getElementById('resultImage');
+            const loading = document.getElementById('loading');
+            const placeholder = document.getElementById('placeholder');
 
-            if (!promptInput.value) return alert("Bitte gib einen Text ein!");
+            if (!prompt) return alert("Bitte Text eingeben!");
 
-            // UI Sperren
-            btn.disabled = true;
-            status.style.display = "block";
-            status.innerText = "KI rechnet... Das kann bis zu 30 Sekunden dauern, wenn das Modell erst geladen werden muss.";
-            resultDiv.innerHTML = '';
-            resultDiv.appendChild(status);
+            // UI umstellen
+            placeholder.style.display = "none";
+            img.style.display = "none";
+            loading.style.display = "block";
 
-            // Dein Token & das Modell
-            const token = "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";
-            // Realistic Vision ist sehr gut für unzensierte/realistische Inhalte
-            const modelUrl = "https://api-inference.huggingface.co/models/SG161222/Realistic_Vision_V5.1_noVAE";
+            // Wir nutzen eine URL, die direkt ein Bild zurückgibt
+            // Das verhindert den "Failed to fetch" Fehler
+            const seed = Math.floor(Math.random() * 100000);
+            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?seed=${seed}&width=1024&height=1024&nologo=true`;
 
-            try {
-                const response = await fetch(modelUrl, {
-                    headers: { 
-                        "Authorization": `Bearer ${token}`,
-                        "Content-Type": "application/json"
-                    },
-                    method: "POST",
-                    body: JSON.stringify({ 
-                        inputs: promptInput.value,
-                        parameters: { "negative_prompt": "blurry, bad quality, distorted" }
-                    }),
-                });
+            // Bild laden
+            img.src = imageUrl;
 
-                if (response.status === 503) {
-                    throw new Error("Modell lädt noch auf den Server. Bitte warte 30 Sek. und klicke dann nochmal auf Generieren.");
-                }
+            img.onload = function() {
+                loading.style.display = "none";
+                img.style.display = "block";
+            };
 
-                if (!response.ok) {
-                    throw new Error("Fehler: " + response.statusText);
-                }
-
-                const blob = await response.blob();
-                const imgUrl = URL.createObjectURL(blob);
-                
-                resultDiv.innerHTML = `<img src="${imgUrl}" alt="Generiertes Bild">`;
-
-            } catch (error) {
-                status.innerText = error.message;
-            } finally {
-                btn.disabled = false;
-            }
+            img.onerror = function() {
+                loading.innerText = "Fehler: Server überlastet. Versuch es nochmal!";
+            };
         }
     </script>
 </body>
