@@ -3,62 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bildgenerator Pro</title>
+    <title>Premium Bildgenerator</title>
     <style>
-        body { font-family: sans-serif; background: #050505; color: white; text-align: center; padding: 20px; }
-        .container { max-width: 450px; margin: auto; background: #111; padding: 25px; border-radius: 15px; border: 1px solid #333; }
-        h2 { color: #ff2e63; }
-        textarea { width: 100%; height: 100px; background: #222; color: white; border: 1px solid #444; border-radius: 8px; padding: 10px; box-sizing: border-box; }
-        button { width: 100%; padding: 15px; background: #ff2e63; border: none; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 15px; }
-        #output-box { margin-top: 25px; min-height: 300px; border: 2px dashed #333; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; }
-        img { width: 100%; height: auto; display: none; }
-        .loading-text { color: #08d9d6; display: none; }
+        /* Modernes, dunkles Design */
+        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: white; text-align: center; padding: 20px; margin: 0; display: flex; justify-content: center; min-height: 100vh; }
+        .card { background: #111; padding: 30px; border-radius: 20px; width: 100%; max-width: 500px; box-shadow: 0 15px 50px rgba(0,0,0,0.8); border: 1px solid #333; margin-top: 50px; }
+        h2 { color: #e91e63; margin-top: 0; font-size: 2em; }
+        textarea { width: 100%; height: 120px; background: #1a1a1a; color: white; border: 1px solid #444; border-radius: 12px; padding: 15px; box-sizing: border-box; font-size: 16px; resize: none; }
+        textarea:focus { border-color: #08d9d6; outline: none; }
+        button { width: 100%; padding: 18px; background: linear-gradient(45deg, #e91e63, #ff2e63); border: none; color: white; font-weight: bold; border-radius: 12px; cursor: pointer; margin-top: 20px; font-size: 18px; transition: 0.3s; }
+        button:hover { background: linear-gradient(45deg, #ff2e63, #e91e63); box-shadow: 0 0 15px rgba(233, 30, 99, 0.5); }
+        button:disabled { background: #555; cursor: not-allowed; box-shadow: none; }
+        #result { margin-top: 30px; min-height: 350px; border: 2px dashed #333; border-radius: 15px; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; position: relative; }
+        img { width: 100%; height: auto; border-radius: 15px; display: none; }
+        .status-text { color: #08d9d6; font-size: 1em; padding: 20px; font-style: italic; }
+        .error-text { color: #ff2e63; font-weight: bold; padding: 20px; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h2>Unzensierte KI</h2>
-        <textarea id="prompt" placeholder="Beschreibe dein Bild (Englisch)..."></textarea>
-        <button onclick="generate()">BILD ERSTELLEN</button>
-
-        <div id="output-box">
-            <p id="placeholder">Dein Bild erscheint hier</p>
-            <p id="loading" class="loading-text">KI rechnet... bitte warten...</p>
-            <img id="resultImage">
+    <div class="card">
+        <h2>Unzensierte KI Pro</h2>
+        <p style="font-size: 0.9em; color: #888; margin-bottom: 20px;">Nutzt Hugging Face Premium API (Englisch empfohlen)</p>
+        
+        <textarea id="promptInput" placeholder="Z.B.: realistic, masterpiece, highly detailed skin textures, ..."></textarea>
+        <button id="genBtn" onclick="generateImage()">BILD GENERIEREN</button>
+        
+        <div id="result">
+            <p id="status" class="status-text">Dein Bild erscheint hier...</p>
+            <img id="resultImage" alt="KI Generierung">
         </div>
     </div>
 
     <script>
-        function generate() {
-            const prompt = document.getElementById('prompt').value;
+        async function generateImage() {
+            const prompt = document.getElementById('promptInput').value;
+            const status = document.getElementById('status');
             const img = document.getElementById('resultImage');
-            const loading = document.getElementById('loading');
-            const placeholder = document.getElementById('placeholder');
+            const btn = document.getElementById('genBtn');
 
-            if (!prompt) return alert("Bitte Text eingeben!");
+            if (!prompt) return alert("Bitte gib eine Beschreibung ein!");
 
-            // UI umstellen
-            placeholder.style.display = "none";
+            // UI Sperren & Laden anzeigen
+            btn.disabled = true;
+            btn.innerText = "KI rechnet...";
             img.style.display = "none";
-            loading.style.display = "block";
+            status.style.display = "block";
+            status.innerHTML = "Sende Anfrage...<br><span style='font-size:0.8em; color:#aaa;'>(Wird generiert, kann beim ersten Mal 60s dauern)</span>";
+            status.className = "status-text";
 
-            // Wir nutzen eine URL, die direkt ein Bild zurückgibt
-            // Das verhindert den "Failed to fetch" Fehler
-            const seed = Math.floor(Math.random() * 100000);
-            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?seed=${seed}&width=1024&height=1024&nologo=true`;
+            // HIER DEINEN HUGGING FACE TOKEN EINTRAGEN
+            const MY_TOKEN = "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";
+            
+            // Ein unzensiertes Modell (Realistic Vision 5.1)
+            const modelUrl = "https://api-inference.huggingface.co/models/SG161222/Realistic_Vision_V5.1_noVAE";
 
-            // Bild laden
-            img.src = imageUrl;
+            try {
+                const response = await fetch(modelUrl, {
+                    headers: { 
+                        "Authorization": `Bearer ${MY_TOKEN}`,
+                        "Content-Type": "application/json"
+                    },
+                    method: "POST",
+                    body: JSON.stringify({ 
+                        inputs: prompt,
+                        parameters: { "negative_prompt": "blurry, bad quality, lowres, distorted" }
+                    }),
+                });
 
-            img.onload = function() {
-                loading.style.display = "none";
+                if (response.status === 503) {
+                    throw new Error("Modell lädt noch. Bitte 30 Sek. warten und nochmal klicken.");
+                }
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error("API Fehler: " + (errData.error || response.statusText));
+                }
+
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                
+                status.style.display = "none";
+                img.src = url;
                 img.style.display = "block";
-            };
 
-            img.onerror = function() {
-                loading.innerText = "Fehler: Server überlastet. Versuch es nochmal!";
-            };
+            } catch (error) {
+                status.innerText = error.message;
+                status.className = "error-text";
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "BILD GENERIEREN";
+            }
         }
     </script>
 </body>
